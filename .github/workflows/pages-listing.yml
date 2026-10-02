@@ -17,15 +17,38 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Generate Directory Listings
-        uses: jayanta525/github-pages-directory-listing@v4.0.0
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          FOLDER: rootserver # Сканируем папку rootserver и все вложенные
+          python-version: '3.x'
+
+      - name: Generate Directory Listings
+        run: |
+          python - <<'EOF'
+          import os
+          from pathlib import Path
+
+          root = Path("rootserver")
+          for dirpath, dirnames, filenames in os.walk(root):
+              dirnames.sort()
+              entries = sorted([d for d in dirnames] + [f for f in filenames if f != "index.html"])
+              html = ["<html><head><meta charset='utf-8'><title>Index</title></head><body><ul>"]
+              if dirpath != str(root):
+                  html.append('<li><a href="../">..</a></li>')
+              for e in entries:
+                  if (Path(dirpath) / e).is_dir():
+                      html.append(f'<li><a href="{e}/">{e}/</a></li>')
+                  else:
+                      html.append(f'<li><a href="{e}">{e}</a></li>')
+              html.append("</ul></body></html>")
+              (Path(dirpath) / "index.html").write_text("\n".join(html), encoding="utf-8")
+              print(f"Generated: {dirpath}/index.html with {len(entries)} entries")
+          EOF
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3.0.1
         with:
-          path: 'rootserver' # Публикуем содержимое rootserver
+          path: 'rootserver'
 
   deploy:
     needs: build
